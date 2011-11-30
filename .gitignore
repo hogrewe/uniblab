@@ -1,1 +1,3 @@
 .uniblab.cfg
+*.pyc
+*.swp

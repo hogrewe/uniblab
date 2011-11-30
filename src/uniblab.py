@@ -9,6 +9,7 @@ import wfh
 import whois
 import myinfois
 import whatcanyoudo
+import whatsthetime
 import ConfigParser
 
 class Uniblab:
@@ -16,7 +17,7 @@ class Uniblab:
         cp = ConfigParser.SafeConfigParser()
         cp.readfp(open('.uniblab.cfg'))
         self.redis_client = redis.Redis()
-        self.plugins = [wfh.WFH(self), wfh.IsWFH(self), wfh.WorkStatusReset(self), whois.WhoIs(self), myinfois.SetMyInfo(self), myinfois.UnsetMyInfo(self),whatcanyoudo.WhatCanYouDo(self)]
+        self.plugins = [wfh.WFH(self), wfh.IsWFH(self), wfh.WorkStatusReset(self), whois.WhoIs(self), myinfois.SetMyInfo(self), myinfois.UnsetMyInfo(self),whatcanyoudo.WhatCanYouDo(self),whatsthetime.WhatsTheTime(self)]
         for p in self.plugins:
             if hasattr(p, 'config'):
                 p.config(cp)
