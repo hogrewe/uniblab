@@ -29,7 +29,7 @@ class HowManyProdErrors:
         self.uniblab = uniblab
 
     def get_commands(self):
-        return {'Where is xxx' : 'Replies with the work status of the user xxx (or all users if xxx is everyone)'}
+        return {'How many errors in prod today?' : 'Respond with the number of severe log entries for each server in prod today' }
 
     def message(self, m, uniblab):
         if m.subject == None:
