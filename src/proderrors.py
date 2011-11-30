@@ -8,7 +8,7 @@ from pytz import timezone
 
 prod2_errors_pattern = re.compile("^\[(prod-.*@ftci[^\]]*)\]\[\{severe=(.*)\}]")
 error_query_pattern = re.compile("^How many errors in prod today\??", re.I)
-debug_ignore_sender = True
+debug_ignore_sender = False
 
 class ProdErrorsCounter:
     def __init__(self, uniblab):
