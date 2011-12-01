@@ -1,9 +1,8 @@
 import re,redis,datetime
-from time import sleep
 from icalendar import Calendar,Event
-from threading import Thread
 import httplib2
 from uniblab_message import MessageResponse
+from twisted.internet import task
 from pytz import timezone
 
 wfh_pattern = re.compile("^(WF.*)|(Working from.*)|(OOO.*)", re.I)
@@ -24,11 +23,14 @@ class WFH:
             print 'Got email with no subject'
             return
         if(wfh_pattern.search(str(m.subject))):
-            if m.username != None:
+            if m.username:
                 uniblab.set_workstatus(m.username, m.subject)
                 print m.username,'is',m.subject
             else:
-                uniblab.create_user_from_email(m.sender)
+                username = uniblab.create_user_from_email(m.sender)
+                if username:
+                    uniblab.set_workstatus(username, m.subject)
+                    print username,'is',m.subject
 
 
 class IsWFH:
@@ -70,30 +72,27 @@ class WorkStatusReset:
         self.wiki_ooo_url = config.get('wiki', 'ooo_url')
     
     def start(self):
-        self.t = Thread(target=self.reset_workstatus, name='work_status_reset')
-        self.t.daemon = True
-        self.t.start()
+        l = task.LoopingCall(self.reset_workstatus)
+        l.start(60*60*1, True)
 
     def reset_workstatus(self):
-        while True:
-            # Remove work status if it's a new day.  This should be in the WFH plugin somehow
-            statusdate = self.uniblab.redis_client.get('workstatus:date')
-            now = str(datetime.date.today())
-            if statusdate != now:
-                print 'Resetting status for new date' , now
-                ooo_emails = self.get_ooo_people()
-                ooo_users = set()
-                for user_email in ooo_emails:
-                    ooo_username = self.uniblab.get_username(user_email)
-                    ooo_users.add(ooo_username)
-                    print ooo_username,'is OOO'
-                    self.uniblab.set_workstatus(ooo_username, 'Out of Office')
-                for user in self.uniblab.get_allusers():
-                    if user not in ooo_users:
-                        self.uniblab.redis_client.hdel(':'.join(['users',user]), 'workstatus')
-                self.uniblab.redis_client.set('workstatus:date', now)
+        # Remove work status if it's a new day.  This should be in the WFH plugin somehow
+        statusdate = self.uniblab.redis_client.get('workstatus:date')
+        now = str(datetime.date.today())
+        if statusdate != now:
+            print 'Resetting status for new date' , now
+            ooo_emails = self.get_ooo_people()
+            ooo_users = set()
+            for user_email in ooo_emails:
+                ooo_username = self.uniblab.get_username(user_email)
+                ooo_users.add(ooo_username)
+                print ooo_username,'is OOO'
+                self.uniblab.set_workstatus(ooo_username, 'Out of Office')
+            for user in self.uniblab.get_allusers():
+                if user not in ooo_users:
+                    self.uniblab.redis_client.hdel(':'.join(['users',user]), 'workstatus')
+            self.uniblab.redis_client.set('workstatus:date', now)
 
-            sleep(60*60*4)
         
     def get_ooo_people(self):
         h = httplib2.Http()

@@ -1,8 +1,9 @@
-from time import sleep
+from twisted.internet import reactor
 import os
 import time
 import email_transport
 import irc_transport
+import xmpp_transport
 import uniblab_message
 import re,redis
 import wfh
@@ -18,14 +19,14 @@ class Uniblab:
         cp = ConfigParser.SafeConfigParser()
         cp.readfp(open('.uniblab.cfg'))
         self.redis_client = redis.Redis()
-        self.plugins = [wfh.WFH(self), wfh.IsWFH(self), wfh.WorkStatusReset(self), whois.WhoIs(self), myinfois.SetMyInfo(self), myinfois.UnsetMyInfo(self),whatcanyoudo.WhatCanYouDo(self),whatsthetime.WhatsTheTime(self),proderrors.ProdErrorsCounter(self),proderrors.HowManyProdErrors(self)]
+        self.plugins = [wfh.WFH(self), wfh.IsWFH(self), wfh.WorkStatusReset(self), whois.WhoIs(self), whois.WhatIs(self), whois.WhoAmI(self), myinfois.SetMyInfo(self), myinfois.UnsetMyInfo(self),whatcanyoudo.WhatCanYouDo(self),whatsthetime.WhatsTheTime(self),proderrors.ProdErrorsCounter(self),proderrors.HowManyProdErrors(self)]
         for p in self.plugins:
             if hasattr(p, 'config'):
                 p.config(cp)
         for p in self.plugins:
             if hasattr(p, 'config'):
                 p.config(cp)
-        self.transports = [email_transport.EmailTransport(self),irc_transport.IRCTransport(self)]
+        self.transports = [email_transport.EmailTransport(self),irc_transport.IRCTransport(self), xmpp_transport.XMPPTransport(self)]
         for t in self.transports:
             if hasattr(t, 'config'):
                 t.config(cp)
@@ -38,10 +39,23 @@ class Uniblab:
         for t in self.transports:
             t.connect()
 
+        try:
+            reactor.run()
+        except KeyboardInterrupt:
+            print "Interrupted by keyboard. Exiting."
+            reactor.stop()
+
     def message(self,m,transport):
         for p in self.plugins:
             if(hasattr(p, 'message')):
                 response = p.message(m, self)
+                if response != None:
+                    transport.respond(m, response)
+
+    def status(self,m,transport):
+        for p in self.plugins:
+            if(hasattr(p, 'status')):
+                response = p.status(m, self)
                 if response != None:
                     transport.respond(m, response)
 
@@ -58,9 +72,17 @@ class Uniblab:
             print "Couldn't find user mapping for email", email,'creating new user'
             username = email_match.group(1)
             self.create_user(username, None, email, None)
+            return username
 
     def username_from_irc(self, ircnick):
         username = self.redis_client.hget('userircs', ircnick.lower())
+        return username
+
+    def username_from_gtalk(self, gtalk):
+        print 'Looking for user', gtalk.lower()
+        username = self.redis_client.hget('usergtalks', gtalk.lower())
+        if username:
+            'Chatting with a user from gtalk',gtalk,username
         return username
 
     def create_user(self, username, realname, email, irc):
@@ -77,13 +99,27 @@ class Uniblab:
         for (k,v) in info.items():
             self.redis_client.hset('users:'+username, k, v)
             if k == 'ircnick':
-                self.redis_client.hset('userircs', v, username)
+                self.redis_client.hset('userircs', v.strip().lower(), username)
+            if k == 'gtalk':
+                self.redis_client.hset('usergtalks', v.strip().lower(), username)
 
     def unset_userinfo(self, username, propname):
         self.redis_client.hdel('users:'+username, propname)
         
     def get_userinfo(self, username):
-        userinfo = self.redis_client.hgetall('users:' + username)
+        userinfo = None
+        userkey = 'users:' + username
+        if self.redis_client.exists(userkey):
+            userinfo = self.redis_client.hgetall('users:' + username)
+        else:
+            # Look for irc
+            user = self.username_from_irc(username)
+            if user:
+                userinfo = self.redis_client.hgetall('users:' + user)
+            else:
+                user = self.username_from_email(username)
+                if user:
+                    userinfo = self.redis_client.hgetall('users:' + user)
 
         return userinfo
 
@@ -102,12 +138,7 @@ def main():
     time.tzset()
     uniblab = Uniblab()
     uniblab.start()
-    while True:
-        sleep(60*60*24)
 
 
 if __name__ == '__main__':
-    try:
-        main()
-    except KeyboardInterrupt:
-       print 'Exiting on ^C' 
+    main()

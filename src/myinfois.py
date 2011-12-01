@@ -1,7 +1,7 @@
 import re,redis,datetime
 from uniblab_message import MessageResponse
 
-setmyinfo_pattern = re.compile("^Uniblab[ ]*:[ ]*My *(.*) is (.*)", re.I)
+setmyinfo_pattern = re.compile("^Uniblab[ ]*:[ ]*My *(.*) (?:is|are) (.*)", re.I)
 unsetmyinfo_pattern = re.compile("^Uniblab[ ]*:[ ]*Unset my (.*)", re.I)
 
 class SetMyInfo:
@@ -21,6 +21,13 @@ class SetMyInfo:
                 userinfo = { mymatch.group(1) : mymatch.group(2) }
                 uniblab.set_userinfo(m.username, userinfo)
                 print 'Setting userinfo for', m.username, ' info:', userinfo
+    def status(self, s, uniblab):
+        if s.username:
+            if s.subject:
+                uniblab.set_userinfo(s.username, { 'status': s.subject })
+            else:
+                uniblab.unset_userinfo(s.username, 'status')
+            
 
 class UnsetMyInfo:
     def __init__(self, uniblab):

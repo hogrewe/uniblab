@@ -20,7 +20,6 @@ class WhatCanYouDo:
             for p in self.uniblab.plugins:
                 if hasattr(p, 'get_commands'):
                     for command,description in p.get_commands().items():
-                        print command, description
                         all_commands.append('{0:<30} : {1}'.format(command, description))
 
             response += '\n'.join(all_commands)

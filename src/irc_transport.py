@@ -1,8 +1,6 @@
 from twisted.words.protocols import irc
 from twisted.internet import reactor, protocol
 
-from threading import Thread
-
 import time, sys
 
 import uniblab_message
@@ -30,8 +28,6 @@ class UniblabIRCClient(irc.IRCClient):
         user = user.split('!', 1)[0]
 
         username = self.factory.transport.uniblab.username_from_irc(user.lower())
-        if username:
-            print 'Got irc from a known user:', username
         message = uniblab_message.uniblab_message(user, channel, msg, None, self.transport_type, username)
         self.factory.transport.uniblab.message(message,self.factory.transport )
 
@@ -65,7 +61,6 @@ class UniblabIRCFactory(protocol.ClientFactory):
 
     def clientConnectionFailed(self, connector, reason):
         print "connection failed:", reason
-        reactor.stop()
 
 class IRCTransport:
     def __init__(self, uniblab):
@@ -80,11 +75,6 @@ class IRCTransport:
     def connect(self):
         f = UniblabIRCFactory(self.channels, self)
         reactor.connectTCP(self.irc_host, self.irc_port, f)
-
-        #reactor.run()
-        self.t = Thread(target=reactor.run, name='irc_reactor',kwargs={'installSignalHandlers':0})
-        self.t.daemon = True
-        self.t.start()
 
     def respond(self, m, response):
         if self.client != None:

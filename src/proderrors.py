@@ -1,7 +1,5 @@
 import re,redis,datetime
-from time import sleep
 from icalendar import Calendar,Event
-from threading import Thread
 import httplib2
 from uniblab_message import MessageResponse
 from pytz import timezone

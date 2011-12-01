@@ -5,7 +5,7 @@ class uniblab_message:
         self.subject = subject
         self.body = body
         self.username = username
-        self.transport_type = None
+        self.transport_type = transport_type
     
     def __str__(self):
         return ''.join( ['From:', str(self.sender),',To:',str(self.receiver),',Subject:',str(self.subject),',Body:',str(self.body)])
