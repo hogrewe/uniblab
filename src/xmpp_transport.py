@@ -2,25 +2,35 @@ from twisted.words.xish import domish
 from twisted.words.protocols.jabber import jid
 from twisted.internet import reactor, protocol
 from twisted.application import service
-from wokkel.xmppim import MessageProtocol, PresenceClientProtocol
+from wokkel.xmppim import MessageProtocol, PresenceClientProtocol, RosterClientProtocol
 from wokkel.xmppim import AvailablePresence
 from wokkel.client import XMPPClient
 
 
 import uniblab_message
 
-class UniblabXMPPProtocol(MessageProtocol, PresenceClientProtocol):
+class UniblabXMPPProtocol(MessageProtocol, PresenceClientProtocol,RosterClientProtocol):
     transport_type = 'gtalk'
 
     def connectionInitialized(self):
         print 'Initializing connection'
         MessageProtocol.connectionInitialized(self)
         PresenceClientProtocol.connectionInitialized(self)
+        RosterClientProtocol.connectionInitialized(self)
+        self.getRoster().addCallback(self.processRoster)
 
     def connectionMade(self):
         print "Connected!"
         self.available(None, None, {None: 'Being a bot'})
-        
+
+
+    def processRoster(self, roster):
+        print 'Processing roster'
+        for name,item in roster.items():
+            print 'Processing item', name
+            if not item.subscriptionTo:
+                'Subscribing to', item.jid
+                self.subscribe(item.jid)
 
     def connectionLost(self, reason):
         print "Disconnected!"
@@ -48,7 +58,6 @@ class UniblabXMPPProtocol(MessageProtocol, PresenceClientProtocol):
         if msg["type"] == 'chat' and hasattr(msg, "body") and msg.body:
             self.typing_notification(msg['from'])
             user = msg['from'].split('/')[0]
-            print 'Looking for google talk user', user
             username = self.transport.uniblab.username_from_gtalk(user.strip().lower())
             message = uniblab_message.uniblab_message(msg['from'], self.transport.xmpp_user, str(msg.body), None, self.transport_type, username)
             self.transport.uniblab.message(message,self.transport )
@@ -68,10 +77,10 @@ class UniblabXMPPProtocol(MessageProtocol, PresenceClientProtocol):
         print "Unavailable from %s" % entity.userhost()
 
     def subscribedReceived(self, entity):
-        print "Subscribe received from %s" % (entity.userhost())
+        print "Subscribed received from %s" % (entity.userhost())
         self.subscribe(entity)
         self.subscribed(entity)
-        self.send_plain(entity.full(), "Yo, I'm a bot.  Ask me: uniblab: what can you do?")
+        self.send_plain(entity.full(), "Yo, I'm a bot.  Ask me: 'uniblab: what can you do?'")
 
     def unsubscribedReceived(self, entity):
         print "Unsubscribed received from %s" % (entity.userhost())
@@ -87,6 +96,15 @@ class UniblabXMPPProtocol(MessageProtocol, PresenceClientProtocol):
         print "Unsubscribe received from %s" % (entity.userhost())
         self.unsubscribe(entity)
         self.unsubscribed(entity)
+
+    def onRosterSet(self, item):
+        if not item.subscriptionTo:
+            self.subscribe(item.jid)
+        print 'Roster set', item.jid.full()
+
+    def onRosterRemove(self, entity):
+        print 'Roster removed', entity.full()
+     
 
 
 class XMPPTransport:

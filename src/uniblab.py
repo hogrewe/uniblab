@@ -79,7 +79,6 @@ class Uniblab:
         return username
 
     def username_from_gtalk(self, gtalk):
-        print 'Looking for user', gtalk.lower()
         username = self.redis_client.hget('usergtalks', gtalk.lower())
         if username:
             'Chatting with a user from gtalk',gtalk,username
