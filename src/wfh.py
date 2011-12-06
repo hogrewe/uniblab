@@ -84,7 +84,7 @@ class WorkStatusReset:
             ooo_emails = self.get_ooo_people()
             ooo_users = set()
             for user_email in ooo_emails:
-                ooo_username = self.uniblab.get_username(user_email)
+                ooo_username = self.uniblab.username_from_email(user_email)
                 ooo_users.add(ooo_username)
                 print ooo_username,'is OOO'
                 self.uniblab.set_workstatus(ooo_username, 'Out of Office')
