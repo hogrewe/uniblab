@@ -29,41 +29,44 @@ class EmailTransport:
         l.start(60, True)
 
     def read_new_messages(self):
-        s = IMAP4_SSL(self.mail_host, self.mail_port)
-        s.login(self.mail_user, self.mail_pass)
-        s.select()
-        typ, data = s.search(None, '(UNDELETED)')
-        messages = list()
-        for msgnum in data[0].split():
-            env,parts = s.fetch(msgnum, 'RFC822')
-            for part in parts:
-                if(len(part) > 1):
-                    msg = email.message_from_string(part[1])
-                    datestr = msg.get('Date')
-                    if datestr != None:
-                        senddate = datetime.datetime.fromtimestamp(time.mktime(email.utils.parsedate(datestr)))
-                        now = datetime.date.today()
-                        if senddate.date() == now:
-                            for m in msg.walk():
-                                if m.get_content_type() == 'text/plain':
-                                    body = m.get_payload()
-                                    break
-                                elif m.get_content_type() == 'text/html':
-                                    body = m.get_payload()
-                                    break
-                            from_addr = msg['from']
-                            email_match = email_pattern.search(from_addr)
-                            if email_match:
-                                from_addr = email_match.group(2)
-                                username = self.uniblab.username_from_email(from_addr)
-                                print 'Processing email from', msg['from'], 'which is user', username
-                            message = uniblab_message.uniblab_message(from_addr,msg['to'], msg['subject'], body, self.transport_type, username)
-                            self.uniblab.message(message,self)
-                        else:
-                            print "Found a message that wasn't sent today, but on", senddate.date()
-                    s.store(msgnum, '+FLAGS', '\\Deleted')
-        s.expunge()
-        s.logout()
+        try:
+            s = IMAP4_SSL(self.mail_host, self.mail_port)
+            s.login(self.mail_user, self.mail_pass)
+            s.select()
+            typ, data = s.search(None, '(UNDELETED)')
+            messages = list()
+            for msgnum in data[0].split():
+                env,parts = s.fetch(msgnum, 'RFC822')
+                for part in parts:
+                    if(len(part) > 1):
+                        msg = email.message_from_string(part[1])
+                        datestr = msg.get('Date')
+                        if datestr != None:
+                            senddate = datetime.datetime.fromtimestamp(time.mktime(email.utils.parsedate(datestr)))
+                            now = datetime.date.today()
+                            if senddate.date() == now:
+                                for m in msg.walk():
+                                    if m.get_content_type() == 'text/plain':
+                                        body = m.get_payload()
+                                        break
+                                    elif m.get_content_type() == 'text/html':
+                                        body = m.get_payload()
+                                        break
+                                from_addr = msg['from']
+                                email_match = email_pattern.search(from_addr)
+                                if email_match:
+                                    from_addr = email_match.group(2)
+                                    username = self.uniblab.username_from_email(from_addr)
+                                    print 'Processing email from', msg['from'], 'which is user', username
+                                message = uniblab_message.uniblab_message(from_addr,msg['to'], msg['subject'], body, self.transport_type, username)
+                                self.uniblab.message(message,self)
+                            else:
+                                print "Found a message that wasn't sent today, but on", senddate.date()
+                        s.store(msgnum, '+FLAGS', '\\Deleted')
+            s.expunge()
+            s.logout()
+        except:
+            print 'Encountered an error in the email loop'
 
     def respond(self, m, response):
         msg = MIMEText(response.text)
